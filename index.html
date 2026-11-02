@@ -74,7 +74,7 @@
                 </div>
             </div>
 
-            <!-- PARÂMETROS OPERACIONAIS (Resumo visual rápido) -->
+            <!-- PARÂMETROS OPERACIONAIS -->
             <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-4 text-xs text-slate-400 flex flex-wrap justify-between items-center gap-2">
                 <span>Filamento: <strong id="resumoFilamento" class="text-slate-200">R$ 96,00/kg</strong></span>
                 <span>Energia: <strong id="resumoEnergia" class="text-slate-200">R$ 0,89/kWh</strong></span>
@@ -150,6 +150,15 @@
                         </div>
                     </div>
 
+                    <!-- Bloco de Uso Pessoal adicionado de volta -->
+                    <div class="bg-slate-900/80 p-3 rounded-lg border border-amber-500/30">
+                        <div class="text-xs text-amber-400 font-semibold mb-1 uppercase tracking-wider">Uso Pessoal (Makers)</div>
+                        <div class="flex justify-between items-baseline">
+                            <span class="text-slate-400 text-sm">Custo Real:</span>
+                            <span id="outUsoPessoal" class="text-lg font-bold text-amber-300">R$ 13,66</span>
+                        </div>
+                    </div>
+
                     <button onclick="salvarOrcamento()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
                         <i class="fa-solid fa-floppy-disk"></i>
                         <span>Salvar no Histórico (Nuvem)</span>
@@ -161,4 +170,184 @@
 
         <!-- HISTÓRICO DE ORÇAMENTOS -->
         <div class="lg:col-span-12 bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg mt-4">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                <h2 class="text-base font-bold text-indigo-400 flex items-center space-x-2">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Histórico de Orçamentos Salvos</span>
+                </h2>
+                <button onclick="exportarCSV()" class="bg-slate-700 hover:bg-slate-600 text-xs text-slate-200 px-3 py-2 rounded-lg transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i>
+                    <span>Exportar CSV</span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 text-xs">
+                            <th class="py-3 px-3">Data</th>
+                            <th class="py-3 px-3">Peça</th>
+                            <th class="py-3 px-3">Tempo / Peso</th>
+                            <th class="py-3 px-3">Custo Total</th>
+                            <th class="py-3 px-3">Preço Venda</th>
+                            <th class="py-3 px-3">Criado por</th>
+                            <th class="py-3 px-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaHistorico" class="divide-y divide-slate-700/50 text-slate-300">
+                        <!-- Preenchido via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL DE SENHA ADMIN -->
+    <div id="modalSenha" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-lock text-indigo-400"></i>
+                <span>Acesso Administrativo</span>
+            </h3>
+            <p class="text-xs text-slate-400">Digite sua senha para acessar as configurações de custos e parâmetros globais:</p>
+            <input type="password" id="adminSenhaInput" placeholder="Sua senha" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+            <div class="flex space-x-3">
+                <button onclick="fecharModalSenha()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-sm transition">Cancelar</button>
+                <button onclick="verificarSenhaAdmin()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-semibold transition">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIGURAÇÕES (ADMIN) -->
+    <div id="modalConfig" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-gears text-indigo-400"></i>
+                    <span>Configurações Globais (Admin)</span>
+                </h3>
+                <button onclick="fecharConfiguracoes()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Custo Filamento (R$/kg)</label>
+                    <input type="number" id="cfgFilamentoKg" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Custo kWh (R$)</label>
+                    <input type="number" id="cfgCustoKwh" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Potência Impressora (W)</label>
+                    <input type="number" id="cfgPotenciaW" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Valor Embalagem (R$)</label>
+                    <input type="number" id="cfgEmbValor" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Valor da Impressora (R$)</label>
+                    <input type="number" id="cfgImpValor" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Vida Útil (horas)</label>
+                    <input type="number" id="cfgImpVida" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">% de Falhas</label>
+                    <input type="number" id="cfgFalhas" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Imposto (%)</label>
+                    <input type="number" id="cfgImposto" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Taxa Cartão (%)</label>
+                    <input type="number" id="cfgTaxaCartao" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Custo Anúncio / Taxa (%)</label>
+                    <input type="number" id="cfgAnuncio" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Markup (Multiplicador)</label>
+                    <input type="number" id="cfgMarkup" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+            </div>
+
+            <div class="flex space-x-3 pt-3 border-t border-slate-700">
+                <button onclick="fecharConfiguracoes()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-sm transition">Cancelar</button>
+                <button onclick="salvarConfiguracoes()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-semibold transition">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (BOTÃO "NÃO" VERMELHO À ESQUERDA) -->
+    <div id="modalExcluir" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+            <div class="text-rose-500 text-3xl mb-1"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3 id="textoConfirmacaoExclusao" class="text-base font-medium text-slate-200">Você deseja apagar a peça "Nome"?</h3>
+            <div class="flex space-x-3 pt-2">
+                <button onclick="confirmarExclusao(false)" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-2 rounded-lg text-sm font-semibold transition">Não</button>
+                <button onclick="confirmarExclusao(true)" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-sm transition">Sim</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA DE LOGIN (OBRIGATÓRIA AO ENTRAR) -->
+    <div id="modalLogin" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <div class="bg-indigo-600/20 text-indigo-400 w-12 h-12 rounded-xl flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">FAZ 3D | Acesso ao Sistema</h2>
+                <p class="text-xs text-slate-400">Entre com seu e-mail e senha cadastrados no Firebase.</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">E-mail</label>
+                    <input type="email" id="loginEmail" placeholder="seu@email.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Senha</label>
+                    <input type="password" id="loginSenha" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <p id="loginErro" class="text-xs text-rose-400 text-center hidden"></p>
+                <button onclick="fazerLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl shadow-lg transition">Entrar no Sistema</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DA APLICAÇÃO E FIREBASE -->
+    <script>
+        // CONFIGURAÇÃO DO FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyAuE9Ud75GPYNxKkUuplvNyv9eLSlHVLh8",
+            authDomain: "calculadora-3d-9c1a3.firebaseapp.com",
+            databaseURL: "https://calculadora-3d-9c1a3-default-rtdb.firebaseio.com",
+            projectId: "calculadora-3d-9c1a3",
+            storageBucket: "calculadora-3d-9c1a3.firebasestorage.app",
+            messagingSenderId: "778164189096",
+            appId: "1:778164189096:web:b9842cdc59010449b8cf9d",
+            measurementId: "G-WH5JYE8456"
+        };
+
+        // Inicializar Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        // E-mail do Administrador
+        const ADMIN_EMAIL = "raphael@faz3d.com"; 
+        let usuarioAtual = null;
+        let idParaExcluir = null;
+
+        // Configurações Padrão
+        let config = {
+            filamentoKg: 96
