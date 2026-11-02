@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Precificação 3D - FAZ</title>
+    <!-- Tailwind CSS para estilização moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDKs (Compat Version para uso direto em arquivo único HTML) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- HEADER / BARRA SUPERIOR -->
+    <header class="bg-slate-800 border-b border-slate-700 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                    <i class="fa-solid fa-cube text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide text-white">FAZ 3D | Precificação</h1>
+                    <p class="text-xs text-slate-400">Sistema Inteligente de Custos</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <div id="userInfo" class="hidden text-right sm:block">
+                    <p class="text-xs text-slate-400">Logado como:</p>
+                    <p id="userEmailDisplay" class="text-sm font-semibold text-indigo-400"></p>
+                </div>
+                <button onclick="abrirConfiguracoes()" id="btnConfig" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-2">
+                    <i class="fa-solid fa-gear"></i>
+                    <span class="hidden sm:inline">Configurações</span>
+                </button>
+                <button onclick="logout()" id="btnLogout" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition hidden">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- COLUNA ESQUERDA: ENTRADA DE DADOS E CONFIGURAÇÕES RÁPIDAS -->
+        <div class="lg:col-span-7 space-y-6">
+            
+            <!-- DADOS DA PEÇA -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+                <h2 class="text-base font-bold text-indigo-400 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-file-pen"></i>
+                    <span>Dados da Peça</span>
+                </h2>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Nome da Peça</label>
+                        <input type="text" id="nomePeca" value="QUEBRA NOZES" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Tempo (horas)</label>
+                        <input type="number" id="tempoPeca" value="6" step="0.1" oninput="calcular()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Peso (gramas)</label>
+                        <input type="number" id="pesoPeca" value="88" step="1" oninput="calcular()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- PARÂMETROS OPERACIONAIS (Resumo visual rápido) -->
+            <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-4 text-xs text-slate-400 flex flex-wrap justify-between items-center gap-2">
+                <span>Filamento: <strong id="resumoFilamento" class="text-slate-200">R$ 96,00/kg</strong></span>
+                <span>Energia: <strong id="resumoEnergia" class="text-slate-200">R$ 0,89/kWh</strong></span>
+                <span>Impressora: <strong id="resumoImpressora" class="text-slate-200">R$ 4.500 (20k h)</strong></span>
+                <span class="text-indigo-400 italic">Parâmetros editáveis no painel Admin</span>
+            </div>
+
+        </div>
+
+        <!-- COLUNA DIREITA: RESULTADOS E PRECIFICAÇÃO -->
+        <div class="lg:col-span-5 space-y-6">
+
+            <!-- CUSTOS DETALHADOS -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+                <h2 class="text-base font-bold text-slate-300 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-calculator"></i>
+                    <span>Custos Detalhados</span>
+                </h2>
+                
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Filamento:</span>
+                        <span id="outFilamento" class="font-medium text-slate-200">R$ 8,45</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Energia:</span>
+                        <span id="outEnergia" class="font-medium text-slate-200">R$ 2,08</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Embalagem:</span>
+                        <span id="outEmbalagem" class="font-medium text-slate-200">R$ 1,00</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Amortização:</span>
+                        <span id="outAmortizacao" class="font-medium text-slate-200">R$ 1,35</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Falhas (<span id="txtPctFalhas">15</span>%):</span>
+                        <span id="outFalhas" class="font-medium text-slate-200">R$ 1,78</span>
+                    </div>
+                    <div class="flex justify-between py-2 text-base font-bold bg-rose-500/10 text-rose-400 px-3 rounded-lg mt-2">
+                        <span>CUSTO TOTAL:</span>
+                        <span id="outCustoTotal">R$ 14,66</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRECIFICAÇÃO E LUCRO -->
+            <div class="bg-gradient-to-br from-slate-800 to-slate-850 border border-emerald-500/30 rounded-xl p-5 shadow-lg">
+                <h2 class="text-base font-bold text-emerald-400 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-tags"></i>
+                    <span>Precificação Comercial</span>
+                </h2>
+
+                <div class="space-y-4">
+                    <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+                        <div class="text-xs text-emerald-400 font-semibold mb-1 uppercase tracking-wider">Consumidor Final</div>
+                        <div class="flex justify-between items-baseline mb-1">
+                            <span class="text-slate-400 text-sm">Preço de Venda:</span>
+                            <span id="outPrecoVenda" class="text-xl font-bold text-white">R$ 73,32</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>Lucro Bruto: <strong id="outLucroBruto" class="text-slate-300">R$ 58,66</strong></span>
+                            <span>Lucro Líquido: <strong id="outLucroLiquido" class="text-emerald-400">R$ 34,46</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+                        <div class="text-xs text-purple-400 font-semibold mb-1 uppercase tracking-wider">Preço Lojista</div>
+                        <div class="flex justify-between items-baseline">
+                            <span class="text-slate-400 text-sm">Preço Sugerido:</span>
+                            <span id="outPrecoLojista" class="text-lg font-bold text-white">R$ 58,66</span>
+                        </div>
+                    </div>
+
+                    <button onclick="salvarOrcamento()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Salvar no Histórico (Nuvem)</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- HISTÓRICO DE ORÇAMENTOS -->
+        <div class="lg:col-span-12 bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg mt-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap
