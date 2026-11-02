@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Precificação 3D - FAZ</title>
+    <!-- Tailwind CSS para estilização moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDKs (Compat Version para uso direto em arquivo único HTML) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- HEADER / BARRA SUPERIOR -->
+    <header class="bg-slate-800 border-b border-slate-700 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                    <i class="fa-solid fa-cube text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide text-white">FAZ 3D | Precificação</h1>
+                    <p class="text-xs text-slate-400">Sistema Inteligente de Custos</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <div id="userInfo" class="hidden text-right sm:block">
+                    <p class="text-xs text-slate-400">Logado como:</p>
+                    <p id="userEmailDisplay" class="text-sm font-semibold text-indigo-400"></p>
+                </div>
+                <button onclick="abrirConfiguracoes()" id="btnConfig" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-2">
+                    <i class="fa-solid fa-gear"></i>
+                    <span class="hidden sm:inline">Configurações</span>
+                </button>
+                <button onclick="logout()" id="btnLogout" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition hidden">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- COLUNA ESQUERDA: ENTRADA DE DADOS E CONFIGURAÇÕES RÁPIDAS -->
+        <div class="lg:col-span-7 space-y-6">
+            
+            <!-- DADOS DA PEÇA -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+                <h2 class="text-base font-bold text-indigo-400 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-file-pen"></i>
+                    <span>Dados da Peça</span>
+                </h2>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Nome da Peça</label>
+                        <input type="text" id="nomePeca" value="QUEBRA NOZES" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Tempo (horas)</label>
+                        <input type="number" id="tempoPeca" value="6" step="0.1" oninput="calcular()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Peso (gramas)</label>
+                        <input type="number" id="pesoPeca" value="88" step="1" oninput="calcular()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- PARÂMETROS OPERACIONAIS -->
+            <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-4 text-xs text-slate-400 flex flex-wrap justify-between items-center gap-2">
+                <span>Filamento: <strong id="resumoFilamento" class="text-slate-200">R$ 96,00/kg</strong></span>
+                <span>Energia: <strong id="resumoEnergia" class="text-slate-200">R$ 0,89/kWh</strong></span>
+                <span>Impressora: <strong id="resumoImpressora" class="text-slate-200">R$ 4.500 (20k h)</strong></span>
+                <span class="text-indigo-400 italic">Parâmetros editáveis no painel Admin</span>
+            </div>
+
+        </div>
+
+        <!-- COLUNA DIREITA: RESULTADOS E PRECIFICAÇÃO -->
+        <div class="lg:col-span-5 space-y-6">
+
+            <!-- CUSTOS DETALHADOS -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+                <h2 class="text-base font-bold text-slate-300 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-calculator"></i>
+                    <span>Custos Detalhados</span>
+                </h2>
+                
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Filamento:</span>
+                        <span id="outFilamento" class="font-medium text-slate-200">R$ 8,45</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Energia:</span>
+                        <span id="outEnergia" class="font-medium text-slate-200">R$ 2,08</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Embalagem:</span>
+                        <span id="outEmbalagem" class="font-medium text-slate-200">R$ 1,00</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Amortização:</span>
+                        <span id="outAmortizacao" class="font-medium text-slate-200">R$ 1,35</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-700/50">
+                        <span class="text-slate-400">Falhas (<span id="txtPctFalhas">15</span>%):</span>
+                        <span id="outFalhas" class="font-medium text-slate-200">R$ 1,78</span>
+                    </div>
+                    <div class="flex justify-between py-2 text-base font-bold bg-rose-500/10 text-rose-400 px-3 rounded-lg mt-2">
+                        <span>CUSTO TOTAL:</span>
+                        <span id="outCustoTotal">R$ 14,66</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRECIFICAÇÃO E LUCRO -->
+            <div class="bg-gradient-to-br from-slate-800 to-slate-850 border border-emerald-500/30 rounded-xl p-5 shadow-lg">
+                <h2 class="text-base font-bold text-emerald-400 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-tags"></i>
+                    <span>Precificação Comercial</span>
+                </h2>
+
+                <div class="space-y-4">
+                    <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+                        <div class="text-xs text-emerald-400 font-semibold mb-1 uppercase tracking-wider">Consumidor Final</div>
+                        <div class="flex justify-between items-baseline mb-1">
+                            <span class="text-slate-400 text-sm">Preço de Venda:</span>
+                            <span id="outPrecoVenda" class="text-xl font-bold text-white">R$ 73,32</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>Lucro Bruto: <strong id="outLucroBruto" class="text-slate-300">R$ 58,66</strong></span>
+                            <span>Lucro Líquido: <strong id="outLucroLiquido" class="text-emerald-400">R$ 34,46</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700">
+                        <div class="text-xs text-purple-400 font-semibold mb-1 uppercase tracking-wider">Preço Lojista</div>
+                        <div class="flex justify-between items-baseline">
+                            <span class="text-slate-400 text-sm">Preço Sugerido:</span>
+                            <span id="outPrecoLojista" class="text-lg font-bold text-white">R$ 58,66</span>
+                        </div>
+                    </div>
+
+                    <!-- Bloco de Uso Pessoal adicionado de volta -->
+                    <div class="bg-slate-900/80 p-3 rounded-lg border border-amber-500/30">
+                        <div class="text-xs text-amber-400 font-semibold mb-1 uppercase tracking-wider">Uso Pessoal (Makers)</div>
+                        <div class="flex justify-between items-baseline">
+                            <span class="text-slate-400 text-sm">Custo Real:</span>
+                            <span id="outUsoPessoal" class="text-lg font-bold text-amber-300">R$ 13,66</span>
+                        </div>
+                    </div>
+
+                    <button onclick="salvarOrcamento()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl shadow-lg transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Salvar no Histórico (Nuvem)</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- HISTÓRICO DE ORÇAMENTOS -->
+        <div class="lg:col-span-12 bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg mt-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                <h2 class="text-base font-bold text-indigo-400 flex items-center space-x-2">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Histórico de Orçamentos Salvos</span>
+                </h2>
+                <button onclick="exportarCSV()" class="bg-slate-700 hover:bg-slate-600 text-xs text-slate-200 px-3 py-2 rounded-lg transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i>
+                    <span>Exportar CSV</span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 text-xs">
+                            <th class="py-3 px-3">Data</th>
+                            <th class="py-3 px-3">Peça</th>
+                            <th class="py-3 px-3">Tempo / Peso</th>
+                            <th class="py-3 px-3">Custo Total</th>
+                            <th class="py-3 px-3">Preço Venda</th>
+                            <th class="py-3 px-3">Criado por</th>
+                            <th class="py-3 px-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaHistorico" class="divide-y divide-slate-700/50 text-slate-300">
+                        <!-- Preenchido via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL DE SENHA ADMIN -->
+    <div id="modalSenha" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-lock text-indigo-400"></i>
+                <span>Acesso Administrativo</span>
+            </h3>
+            <p class="text-xs text-slate-400">Digite sua senha para acessar as configurações de custos e parâmetros globais:</p>
+            <input type="password" id="adminSenhaInput" placeholder="Sua senha" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+            <div class="flex space-x-3">
+                <button onclick="fecharModalSenha()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-sm transition">Cancelar</button>
+                <button onclick="verificarSenhaAdmin()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-semibold transition">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIGURAÇÕES (ADMIN) -->
+    <div id="modalConfig" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-gears text-indigo-400"></i>
+                    <span>Configurações Globais (Admin)</span>
+                </h3>
+                <button onclick="fecharConfiguracoes()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Custo Filamento (R$/kg)</label>
+                    <input type="number" id="cfgFilamentoKg" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Custo kWh (R$)</label>
+                    <input type="number" id="cfgCustoKwh" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Potência Impressora (W)</label>
+                    <input type="number" id="cfgPotenciaW" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Valor Embalagem (R$)</label>
+                    <input type="number" id="cfgEmbValor" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Valor da Impressora (R$)</label>
+                    <input type="number" id="cfgImpValor" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Vida Útil (horas)</label>
+                    <input type="number" id="cfgImpVida" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">% de Falhas</label>
+                    <input type="number" id="cfgFalhas" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Imposto (%)</label>
+                    <input type="number" id="cfgImposto" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Taxa Cartão (%)</label>
+                    <input type="number" id="cfgTaxaCartao" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Custo Anúncio / Taxa (%)</label>
+                    <input type="number" id="cfgAnuncio" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Markup (Multiplicador)</label>
+                    <input type="number" id="cfgMarkup" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                </div>
+            </div>
+
+            <div class="flex space-x-3 pt-3 border-t border-slate-700">
+                <button onclick="fecharConfiguracoes()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-sm transition">Cancelar</button>
+                <button onclick="salvarConfiguracoes()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-semibold transition">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (BOTÃO "NÃO" VERMELHO À ESQUERDA) -->
+    <div id="modalExcluir" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+            <div class="text-rose-500 text-3xl mb-1"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3 id="textoConfirmacaoExclusao" class="text-base font-medium text-slate-200">Você deseja apagar a peça "Nome"?</h3>
+            <div class="flex space-x-3 pt-2">
+                <button onclick="confirmarExclusao(false)" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-2 rounded-lg text-sm font-semibold transition">Não</button>
+                <button onclick="confirmarExclusao(true)" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-sm transition">Sim</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA DE LOGIN (OBRIGATÓRIA AO ENTRAR) -->
+    <div id="modalLogin" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <div class="bg-indigo-600/20 text-indigo-400 w-12 h-12 rounded-xl flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">FAZ 3D | Acesso ao Sistema</h2>
+                <p class="text-xs text-slate-400">Entre com seu e-mail e senha cadastrados no Firebase.</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">E-mail</label>
+                    <input type="email" id="loginEmail" placeholder="seu@email.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Senha</label>
+                    <input type="password" id="loginSenha" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <p id="loginErro" class="text-xs text-rose-400 text-center hidden"></p>
+                <button onclick="fazerLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl shadow-lg transition">Entrar no Sistema</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DA APLICAÇÃO E FIREBASE -->
+    <script>
+        // CONFIGURAÇÃO DO FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyAuE9Ud75GPYNxKkUuplvNyv9eLSlHVLh8",
+            authDomain: "calculadora-3d-9c1a3.firebaseapp.com",
+            databaseURL: "https://calculadora-3d-9c1a3-default-rtdb.firebaseio.com",
+            projectId: "calculadora-3d-9c1a3",
+            storageBucket: "calculadora-3d-9c1a3.firebasestorage.app",
+            messagingSenderId: "778164189096",
+            appId: "1:778164189096:web:b9842cdc59010449b8cf9d",
+            measurementId: "G-WH5JYE8456"
+        };
+
+        // Inicializar Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        // E-mail do Administrador
+        const ADMIN_EMAIL = "raphael@faz3d.com"; 
+        let usuarioAtual = null;
+        let idParaExcluir = null;
+
+        // Configurações Padrão
+        let config = {
+            filamentoKg: 96.00,
+            custoKwh: 0.89,
+            potenciaW: 390,
+            embValor: 30.00,
+            embRolos: 30,
+            unidadesMes: 1,
+            custoFixoMes: 0.00,
+            impValor: 4500.00,
+            impVida: 20000,
+            falhasPct: 15,
+            impostoPct: 8,
+            taxaCartaoPct: 5,
+            anuncioPct: 20,
+            markup: 5
+        };
+
+        // Monitorar Estado de Autenticação
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                usuarioAtual = user;
+                document.getElementById('modalLogin').classList.add('hidden');
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('userEmailDisplay').innerText = user.email;
+                document.getElementById('btnLogout').classList.remove('hidden');
+                carregarConfiguracoesDoBanco();
+                carregarHistorico();
+            } else {
+                usuarioAtual = null;
+                document.getElementById('modalLogin').classList.remove('hidden');
+                document.getElementById('userInfo').classList.add('hidden');
+                document.getElementById('btnLogout').classList.add('hidden');
+            }
+        });
+
+        function fazerLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const senha = document.getElementById('loginSenha').value;
+            const erroEl = document.getElementById('loginErro');
+            
+            auth.signInWithEmailAndPassword(email, senha)
+                .catch((error) => {
+                    erroEl.innerText = "Erro ao entrar: " + error.message;
+                    erroEl.classList.remove('hidden');
+                });
+        }
+
+        function logout() {
+            auth.signOut();
+        }
+
+        function eAdmin() {
+            return usuarioAtual && usuarioAtual.email === ADMIN_EMAIL;
+        }
+
+        // CARREGAR CONFIGURAÇÕES DO FIREBASE
+        function carregarConfiguracoesDoBanco() {
+            db.ref('configuracoes').once('value').then((snapshot) => {
+                if (snapshot.exists()) {
+                    config = snapshot.val();
+                }
+                atualizarResumosTela();
+                calcular();
+            });
+        }
+
+        function atualizarResumosTela() {
+            document.getElementById('resumoFilamento').innerText = `R$ ${config.filamentoKg.toFixed(2)}/kg`;
+            document.getElementById('resumoEnergia').innerText = `R$ ${config.custoKwh.toFixed(2)}/kWh`;
+            document.getElementById('resumoImpressora').innerText = `R$ ${config.impValor.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (${config.impVida}h)`;
+            document.getElementById('txtPctFalhas').innerText = config.falhasPct;
+        }
+
+        // MOTOR DE CÁLCULO
+        function calcular() {
+            const tempo = parseFloat(document.getElementById('tempoPeca').value) || 0;
+            const peso = parseFloat(document.getElementById('pesoPeca').value) || 0;
+
+            const custoFilamento = (peso / 1000) * config.filamentoKg;
+            const consumoKwh = (config.potenciaW / 1000) * tempo;
+            const custoEnergia = consumoKwh * config.custoKwh;
+            const custoEmbalagem = config.embRolos > 0 ? (config.embValor / config.embRolos) : 0;
+            const custoAmortizacao = (config.impValor / config.impVida) * tempo;
+            
+            const subtotalParcial = custoFilamento + custoEnergia + custoEmbalagem + custoAmortizacao;
+            const custoFalhas = subtotalParcial * (config.falhasPct / 100);
+            const custoTotal = subtotalParcial + custoFalhas;
+
+            const precoVenda = custoTotal * config.markup;
+            const lucroBruto = precoVenda - custoTotal;
+
+            const valImposto = precoVenda * (config.impostoPct / 100);
+            const valTaxaCartao = precoVenda * (config.taxaCartaoPct / 100);
+            const valAnuncio = precoVenda * (config.anuncioPct / 100);
+            const lucroLiquido = lucroBruto - (valImposto + valTaxaCartao + valAnuncio);
+
+            const precoLojista = precoVenda * 0.8; 
+            const custoRealUsoPessoal = custoTotal; // Custo real de fabricação
+
+            // Exibir na tela
+            document.getElementById('outFilamento').innerText = `R$ ${custoFilamento.toFixed(2)}`;
+            document.getElementById('outEnergia').innerText = `R$ ${custoEnergia.toFixed(2)}`;
+            document.getElementById('outEmbalagem').innerText = `R$ ${custoEmbalagem.toFixed(2)}`;
+            document.getElementById('outAmortizacao').innerText = `R$ ${custoAmortizacao.toFixed(2)}`;
+            document.getElementById('outFalhas').innerText = `R$ ${custoFalhas.toFixed(2)}`;
+            document.getElementById('outCustoTotal').innerText = `R$ ${custoTotal.toFixed(2)}`;
+
+            document.getElementById('outPrecoVenda').innerText = `R$ ${precoVenda.toFixed(2)}`;
+            document.getElementById('outLucroBruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
+            document.getElementById('outLucroLiquido').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
+            document.getElementById('outPrecoLojista').innerText = `R$ ${precoLojista.toFixed(2)}`;
+            document.getElementById('outUsoPessoal').innerText = `R$ ${custoRealUsoPessoal.toFixed(2)}`;
+
+            window._calculoAtual = {
+                custoTotal: custoTotal.toFixed(2),
+                precoVenda: precoVenda.toFixed(2)
+            };
+        }
+
+        // SALVAR ORÇAMENTO NO FIREBASE
+        function salvarOrcamento() {
+            if (!usuarioAtual) {
+                alert("Você precisa estar logado para salvar.");
+                return;
+            }
+            const nome = document.getElementById('nomePeca').value || "Peça sem nome";
+            const tempo = document.getElementById('tempoPeca').value;
+            const peso = document.getElementById('pesoPeca').value;
+            
+            const novoRegistro = {
+                data: new Date().toLocaleDateString('pt-BR'),
+                nome: nome,
+                tempo: tempo,
+                peso: peso,
+                custoTotal: window._calculoAtual.custoTotal,
+                precoVenda: window._calculoAtual.precoVenda,
+                criadoPor: usuarioAtual.email
+            };
+
+            db.ref('historico').push(novoRegistro).then(() => {
+                alert("Orçamento salvo com sucesso na nuvem!");
+            }).catch((err) => {
+                alert("Erro ao salvar: " + err.message);
+            });
+        }
+
+        // CARREGAR HISTÓRICO EM TEMPO REAL
+        function carregarHistorico() {
+            const tbody = document.getElementById('tabelaHistorico');
+            db.ref('historico').on('value', (snapshot) => {
+                tbody.innerHTML = '';
+                if (!snapshot.exists()) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-500">Nenhum orçamento salvo ainda.</td></tr>`;
+                    return;
+                }
+                
+                snapshot.forEach((childSnapshot) => {
+                    const item = childSnapshot.val();
+                    const id = childSnapshot.key;
+                    const podeApagar = eAdmin();
+
+                    const tr = document.createElement('tr');
+                    tr.className = "border-b border-slate-700/50 hover:bg-slate-700/20";
+                    tr.innerHTML = `
+                        <td class="py-3 px-3 text-xs text-slate-400">${item.data}</td>
+                        <td class="py-3 px-3 font-semibold text-white">${item.nome}</td>
+                        <td class="py-3 px-3 text-xs text-slate-300">${item.tempo}h / ${item.peso}g</td>
+                        <td class="py-3 px-3">R$ ${item.custoTotal}</td>
+                        <td class="py-3 px-3 text-emerald-400 font-semibold">R$ ${item.precoVenda}</td>
+                        <td class="py-3 px-3 text-xs text-slate-400">${item.criadoPor}</td>
+                        <td class="py-3 px-3 text-center">
+                            ${podeApagar ? `<button onclick="periciarExclusao('${id}', '${item.nome}')" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash-can"></i></button>` : `<span class="text-xs text-slate-600">-</span>`}
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        // CONFIGURAÇÕES E ADMIN
+        function abrirConfiguracoes() {
+            if (eAdmin()) {
+                abrirPainelConfigAdmin();
+            } else {
+                document.getElementById('modalSenha').classList.remove('hidden');
+            }
+        }
+
+        function fecharModalSenha() {
+            document.getElementById('modalSenha').classList.add('hidden');
+            document.getElementById('adminSenhaInput').value = '';
+        }
+
+        function verificarSenhaAdmin() {
+            const senhaDigitada = document.getElementById('adminSenhaInput').value;
+            if (senhaDigitada === "admin123" || eAdmin()) {
+                fecharModalSenha();
+                abrirPainelConfigAdmin();
+            } else {
+                alert("Senha incorreta!");
+            }
+        }
+
+        function abrirPainelConfigAdmin() {
+            document.getElementById('cfgFilamentoKg').value = config.filamentoKg;
+            document.getElementById('cfgCustoKwh').value = config.custoKwh;
+            document.getElementById('cfgPotenciaW').value = config.potenciaW;
+            document.getElementById('cfgEmbValor').value = config.embValor;
+            document.getElementById('cfgImpValor').value = config.impValor;
+            document.getElementById('cfgImpVida').value = config.impVida;
+            document.getElementById('cfgFalhas').value = config.falhasPct;
+            document.getElementById('cfgImposto').value = config.impostoPct;
+            document.getElementById('cfgTaxaCartao').value = config.taxaCartaoPct;
+            document.getElementById('cfgAnuncio').value = config.anuncioPct;
+            document.getElementById('cfgMarkup').value = config.markup;
+
+            document.getElementById('modalConfig').classList.remove('hidden');
+        }
+
+        function fecharConfiguracoes() {
+            document.getElementById('modalConfig').classList.add('hidden');
+        }
+
+        function salvarConfiguracoes() {
+            config = {
+                filamentoKg: parseFloat(document.getElementById('cfgFilamentoKg').value) || 0,
+                custoKwh: parseFloat(document.getElementById('cfgCustoKwh').value) || 0,
+                potenciaW: parseFloat(document.getElementById('cfgPotenciaW').value) || 0,
+                embValor: parseFloat(document.getElementById('cfgEmbValor').value) || 0,
+                embRolos: config.embRolos,
+                unidadesMes: config.unidadesMes,
+                custoFixoMes: config.custoFixoMes,
+                impValor: parseFloat(document.getElementById('cfgImpValor').value) || 0,
+                impVida: parseInt(document.getElementById('cfgImpVida').value) || 1,
+                falhasPct: parseFloat(document.getElementById('cfgFalhas').value) || 0,
+                impostoPct: parseFloat(document.getElementById('cfgImposto').value) || 0,
+                taxaCartaoPct: parseFloat(document.getElementById('cfgTaxaCartao').value) || 0,
+                anuncioPct: parseFloat(document.getElementById('cfgAnuncio').value) || 0,
+                markup: parseFloat(document.getElementById('cfgMarkup').value) || 1
+            };
+
+            db.ref('configuracoes').set(config).then(() => {
+                alert("Configurações atualizadas na nuvem com sucesso!");
+                fecharConfiguracoes();
+                atualizarResumosTela();
+                calcular();
+            });
+        }
+
+        // EXCLUSÃO INDIVIDUAL COM MODAL DE SEGURANÇA (BOTÃO "NÃO" VERMELHO À ESQUERDA)
+        function periciarExclusao(id, nomePeca) {
+            idParaExcluir = id;
+            document.getElementById('textoConfirmacaoExclusao').innerText = `Você deseja apagar a peça "${nomePeca}"?`;
+            document.getElementById('modalExcluir').classList.remove('hidden');
+        }
+
+        function confirmarExclusao(apagar) {
+            document.getElementById('modalExcluir').classList.add('hidden');
+            if (apagar && idParaExcluir) {
+                db.ref('historico/' + idParaExcluir).remove().then(() => {
+                    idParaExcluir = null;
+                });
+            }
+        }
+
+        // EXPORTAR CSV
+        function exportarCSV() {
+            db.ref('historico').once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    alert("Não há dados no histórico para exportar.");
+                    return;
+                }
+                let csvContent = "data:text/csv;charset=utf-8,Data;Peca;Tempo(h);Peso(g);CustoTotal;PrecoVenda;CriadoPor\r\n";
+                snapshot.forEach((childSnapshot) => {
+                    const i = childSnapshot.val();
+                    csvContent += `${i.data};${i.nome};${i.tempo};${i.peso};${i.custoTotal};${i.precoVenda};${i.criadoPor}\r\n`;
+                });
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "historico_orcamentos_3d.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        }
+
+        // Inicialização padrão
+        calcular();
+    </script>
+</body>
+</html>
