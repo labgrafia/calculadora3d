@@ -61,7 +61,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="sm:col-span-3">
                         <label class="block text-xs font-medium text-slate-400 mb-1">Nome da Peça</label>
-                        <input type="text" id="nomePeca" value="QUEBRA NOZES" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                        <input type="text" id="nomePeca" value="Insira o nome da peça aqui" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-400 mb-1">Tempo (horas)</label>
@@ -150,7 +150,6 @@
                         </div>
                     </div>
 
-                    <!-- Bloco de Uso Pessoal adicionado de volta -->
                     <div class="bg-slate-900/80 p-3 rounded-lg border border-amber-500/30">
                         <div class="text-xs text-amber-400 font-semibold mb-1 uppercase tracking-wider">Uso Pessoal (Makers)</div>
                         <div class="flex justify-between items-baseline">
@@ -284,7 +283,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (BOTÃO "NÃO" VERMELHO À ESQUERDA) -->
+    <!-- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO -->
     <div id="modalExcluir" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
             <div class="text-rose-500 text-3xl mb-1"><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -296,7 +295,7 @@
         </div>
     </div>
 
-    <!-- TELA DE LOGIN (OBRIGATÓRIA AO ENTRAR) -->
+    <!-- TELA DE LOGIN -->
     <div id="modalLogin" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50 p-4">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6">
             <div class="text-center space-y-2">
@@ -316,7 +315,10 @@
                     <label class="block text-xs font-medium text-slate-400 mb-1">Senha</label>
                     <input type="password" id="loginSenha" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
                 </div>
-                <p id="loginErro" class="text-xs text-rose-400 text-center hidden"></p>
+                <!-- Caixa de Erro de Login Visível -->
+                <div id="loginErroContainer" class="hidden bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-3 rounded-lg text-center">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span id="loginErroTexto">Erro ao autenticar.</span>
+                </div>
                 <button onclick="fazerLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl shadow-lg transition">Entrar no Sistema</button>
             </div>
         </div>
@@ -324,7 +326,6 @@
 
     <!-- SCRIPT DA APLICAÇÃO E FIREBASE -->
     <script>
-        // CONFIGURAÇÃO DO FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyAuE9Ud75GPYNxKkUuplvNyv9eLSlHVLh8",
             authDomain: "calculadora-3d-9c1a3.firebaseapp.com",
@@ -336,19 +337,16 @@
             measurementId: "G-WH5JYE8456"
         };
 
-        // Inicializar Firebase
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
         const auth = firebase.auth();
         const db = firebase.database();
 
-        // E-mail do Administrador
         const ADMIN_EMAIL = "raphael@faz3d.com"; 
         let usuarioAtual = null;
         let idParaExcluir = null;
 
-        // Configurações Padrão
         let config = {
             filamentoKg: 96.00,
             custoKwh: 0.89,
@@ -366,7 +364,6 @@
             markup: 5
         };
 
-        // Monitorar Estado de Autenticação
         auth.onAuthStateChanged((user) => {
             if (user) {
                 usuarioAtual = user;
@@ -385,14 +382,30 @@
         });
 
         function fazerLogin() {
-            const email = document.getElementById('loginEmail').value;
+            const email = document.getElementById('loginEmail').value.trim();
             const senha = document.getElementById('loginSenha').value;
-            const erroEl = document.getElementById('loginErro');
+            const containerErro = document.getElementById('loginErroContainer');
+            const textoErro = document.getElementById('loginErroTexto');
+
+            if (!email || !senha) {
+                textoErro.innerText = "Preencha o e-mail e a senha.";
+                containerErro.classList.remove('hidden');
+                return;
+            }
             
             auth.signInWithEmailAndPassword(email, senha)
+                .then(() => {
+                    containerErro.classList.add('hidden');
+                })
                 .catch((error) => {
-                    erroEl.innerText = "Erro ao entrar: " + error.message;
-                    erroEl.classList.remove('hidden');
+                    let mensagemAmigavel = "Erro ao fazer login.";
+                    if (error.code === 'auth/invalid-email') mensagemAmigavel = "E-mail inválido.";
+                    if (error.code === 'auth/user-not-found') mensagemAmigavel = "Usuário não encontrado no Firebase.";
+                    if (error.code === 'auth/wrong-password') mensagemAmigavel = "Senha incorreta.";
+                    if (error.code === 'auth/invalid-credential') mensagemAmigavel = "E-mail ou senha incorretos.";
+                    
+                    textoErro.innerText = mensagemAmigavel;
+                    containerErro.classList.remove('hidden');
                 });
         }
 
@@ -404,240 +417,4 @@
             return usuarioAtual && usuarioAtual.email === ADMIN_EMAIL;
         }
 
-        // CARREGAR CONFIGURAÇÕES DO FIREBASE
-        function carregarConfiguracoesDoBanco() {
-            db.ref('configuracoes').once('value').then((snapshot) => {
-                if (snapshot.exists()) {
-                    config = snapshot.val();
-                }
-                atualizarResumosTela();
-                calcular();
-            });
-        }
-
-        function atualizarResumosTela() {
-            document.getElementById('resumoFilamento').innerText = `R$ ${config.filamentoKg.toFixed(2)}/kg`;
-            document.getElementById('resumoEnergia').innerText = `R$ ${config.custoKwh.toFixed(2)}/kWh`;
-            document.getElementById('resumoImpressora').innerText = `R$ ${config.impValor.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (${config.impVida}h)`;
-            document.getElementById('txtPctFalhas').innerText = config.falhasPct;
-        }
-
-        // MOTOR DE CÁLCULO
-        function calcular() {
-            const tempo = parseFloat(document.getElementById('tempoPeca').value) || 0;
-            const peso = parseFloat(document.getElementById('pesoPeca').value) || 0;
-
-            const custoFilamento = (peso / 1000) * config.filamentoKg;
-            const consumoKwh = (config.potenciaW / 1000) * tempo;
-            const custoEnergia = consumoKwh * config.custoKwh;
-            const custoEmbalagem = config.embRolos > 0 ? (config.embValor / config.embRolos) : 0;
-            const custoAmortizacao = (config.impValor / config.impVida) * tempo;
-            
-            const subtotalParcial = custoFilamento + custoEnergia + custoEmbalagem + custoAmortizacao;
-            const custoFalhas = subtotalParcial * (config.falhasPct / 100);
-            const custoTotal = subtotalParcial + custoFalhas;
-
-            const precoVenda = custoTotal * config.markup;
-            const lucroBruto = precoVenda - custoTotal;
-
-            const valImposto = precoVenda * (config.impostoPct / 100);
-            const valTaxaCartao = precoVenda * (config.taxaCartaoPct / 100);
-            const valAnuncio = precoVenda * (config.anuncioPct / 100);
-            const lucroLiquido = lucroBruto - (valImposto + valTaxaCartao + valAnuncio);
-
-            const precoLojista = precoVenda * 0.8; 
-            const custoRealUsoPessoal = custoTotal; // Custo real de fabricação
-
-            // Exibir na tela
-            document.getElementById('outFilamento').innerText = `R$ ${custoFilamento.toFixed(2)}`;
-            document.getElementById('outEnergia').innerText = `R$ ${custoEnergia.toFixed(2)}`;
-            document.getElementById('outEmbalagem').innerText = `R$ ${custoEmbalagem.toFixed(2)}`;
-            document.getElementById('outAmortizacao').innerText = `R$ ${custoAmortizacao.toFixed(2)}`;
-            document.getElementById('outFalhas').innerText = `R$ ${custoFalhas.toFixed(2)}`;
-            document.getElementById('outCustoTotal').innerText = `R$ ${custoTotal.toFixed(2)}`;
-
-            document.getElementById('outPrecoVenda').innerText = `R$ ${precoVenda.toFixed(2)}`;
-            document.getElementById('outLucroBruto').innerText = `R$ ${lucroBruto.toFixed(2)}`;
-            document.getElementById('outLucroLiquido').innerText = `R$ ${lucroLiquido.toFixed(2)}`;
-            document.getElementById('outPrecoLojista').innerText = `R$ ${precoLojista.toFixed(2)}`;
-            document.getElementById('outUsoPessoal').innerText = `R$ ${custoRealUsoPessoal.toFixed(2)}`;
-
-            window._calculoAtual = {
-                custoTotal: custoTotal.toFixed(2),
-                precoVenda: precoVenda.toFixed(2)
-            };
-        }
-
-        // SALVAR ORÇAMENTO NO FIREBASE
-        function salvarOrcamento() {
-            if (!usuarioAtual) {
-                alert("Você precisa estar logado para salvar.");
-                return;
-            }
-            const nome = document.getElementById('nomePeca').value || "Peça sem nome";
-            const tempo = document.getElementById('tempoPeca').value;
-            const peso = document.getElementById('pesoPeca').value;
-            
-            const novoRegistro = {
-                data: new Date().toLocaleDateString('pt-BR'),
-                nome: nome,
-                tempo: tempo,
-                peso: peso,
-                custoTotal: window._calculoAtual.custoTotal,
-                precoVenda: window._calculoAtual.precoVenda,
-                criadoPor: usuarioAtual.email
-            };
-
-            db.ref('historico').push(novoRegistro).then(() => {
-                alert("Orçamento salvo com sucesso na nuvem!");
-            }).catch((err) => {
-                alert("Erro ao salvar: " + err.message);
-            });
-        }
-
-        // CARREGAR HISTÓRICO EM TEMPO REAL
-        function carregarHistorico() {
-            const tbody = document.getElementById('tabelaHistorico');
-            db.ref('historico').on('value', (snapshot) => {
-                tbody.innerHTML = '';
-                if (!snapshot.exists()) {
-                    tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-500">Nenhum orçamento salvo ainda.</td></tr>`;
-                    return;
-                }
-                
-                snapshot.forEach((childSnapshot) => {
-                    const item = childSnapshot.val();
-                    const id = childSnapshot.key;
-                    const podeApagar = eAdmin();
-
-                    const tr = document.createElement('tr');
-                    tr.className = "border-b border-slate-700/50 hover:bg-slate-700/20";
-                    tr.innerHTML = `
-                        <td class="py-3 px-3 text-xs text-slate-400">${item.data}</td>
-                        <td class="py-3 px-3 font-semibold text-white">${item.nome}</td>
-                        <td class="py-3 px-3 text-xs text-slate-300">${item.tempo}h / ${item.peso}g</td>
-                        <td class="py-3 px-3">R$ ${item.custoTotal}</td>
-                        <td class="py-3 px-3 text-emerald-400 font-semibold">R$ ${item.precoVenda}</td>
-                        <td class="py-3 px-3 text-xs text-slate-400">${item.criadoPor}</td>
-                        <td class="py-3 px-3 text-center">
-                            ${podeApagar ? `<button onclick="periciarExclusao('${id}', '${item.nome}')" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash-can"></i></button>` : `<span class="text-xs text-slate-600">-</span>`}
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            });
-        }
-
-        // CONFIGURAÇÕES E ADMIN
-        function abrirConfiguracoes() {
-            if (eAdmin()) {
-                abrirPainelConfigAdmin();
-            } else {
-                document.getElementById('modalSenha').classList.remove('hidden');
-            }
-        }
-
-        function fecharModalSenha() {
-            document.getElementById('modalSenha').classList.add('hidden');
-            document.getElementById('adminSenhaInput').value = '';
-        }
-
-        function verificarSenhaAdmin() {
-            const senhaDigitada = document.getElementById('adminSenhaInput').value;
-            if (senhaDigitada === "admin123" || eAdmin()) {
-                fecharModalSenha();
-                abrirPainelConfigAdmin();
-            } else {
-                alert("Senha incorreta!");
-            }
-        }
-
-        function abrirPainelConfigAdmin() {
-            document.getElementById('cfgFilamentoKg').value = config.filamentoKg;
-            document.getElementById('cfgCustoKwh').value = config.custoKwh;
-            document.getElementById('cfgPotenciaW').value = config.potenciaW;
-            document.getElementById('cfgEmbValor').value = config.embValor;
-            document.getElementById('cfgImpValor').value = config.impValor;
-            document.getElementById('cfgImpVida').value = config.impVida;
-            document.getElementById('cfgFalhas').value = config.falhasPct;
-            document.getElementById('cfgImposto').value = config.impostoPct;
-            document.getElementById('cfgTaxaCartao').value = config.taxaCartaoPct;
-            document.getElementById('cfgAnuncio').value = config.anuncioPct;
-            document.getElementById('cfgMarkup').value = config.markup;
-
-            document.getElementById('modalConfig').classList.remove('hidden');
-        }
-
-        function fecharConfiguracoes() {
-            document.getElementById('modalConfig').classList.add('hidden');
-        }
-
-        function salvarConfiguracoes() {
-            config = {
-                filamentoKg: parseFloat(document.getElementById('cfgFilamentoKg').value) || 0,
-                custoKwh: parseFloat(document.getElementById('cfgCustoKwh').value) || 0,
-                potenciaW: parseFloat(document.getElementById('cfgPotenciaW').value) || 0,
-                embValor: parseFloat(document.getElementById('cfgEmbValor').value) || 0,
-                embRolos: config.embRolos,
-                unidadesMes: config.unidadesMes,
-                custoFixoMes: config.custoFixoMes,
-                impValor: parseFloat(document.getElementById('cfgImpValor').value) || 0,
-                impVida: parseInt(document.getElementById('cfgImpVida').value) || 1,
-                falhasPct: parseFloat(document.getElementById('cfgFalhas').value) || 0,
-                impostoPct: parseFloat(document.getElementById('cfgImposto').value) || 0,
-                taxaCartaoPct: parseFloat(document.getElementById('cfgTaxaCartao').value) || 0,
-                anuncioPct: parseFloat(document.getElementById('cfgAnuncio').value) || 0,
-                markup: parseFloat(document.getElementById('cfgMarkup').value) || 1
-            };
-
-            db.ref('configuracoes').set(config).then(() => {
-                alert("Configurações atualizadas na nuvem com sucesso!");
-                fecharConfiguracoes();
-                atualizarResumosTela();
-                calcular();
-            });
-        }
-
-        // EXCLUSÃO INDIVIDUAL COM MODAL DE SEGURANÇA (BOTÃO "NÃO" VERMELHO À ESQUERDA)
-        function periciarExclusao(id, nomePeca) {
-            idParaExcluir = id;
-            document.getElementById('textoConfirmacaoExclusao').innerText = `Você deseja apagar a peça "${nomePeca}"?`;
-            document.getElementById('modalExcluir').classList.remove('hidden');
-        }
-
-        function confirmarExclusao(apagar) {
-            document.getElementById('modalExcluir').classList.add('hidden');
-            if (apagar && idParaExcluir) {
-                db.ref('historico/' + idParaExcluir).remove().then(() => {
-                    idParaExcluir = null;
-                });
-            }
-        }
-
-        // EXPORTAR CSV
-        function exportarCSV() {
-            db.ref('historico').once('value').then((snapshot) => {
-                if (!snapshot.exists()) {
-                    alert("Não há dados no histórico para exportar.");
-                    return;
-                }
-                let csvContent = "data:text/csv;charset=utf-8,Data;Peca;Tempo(h);Peso(g);CustoTotal;PrecoVenda;CriadoPor\r\n";
-                snapshot.forEach((childSnapshot) => {
-                    const i = childSnapshot.val();
-                    csvContent += `${i.data};${i.nome};${i.tempo};${i.peso};${i.custoTotal};${i.precoVenda};${i.criadoPor}\r\n`;
-                });
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", "historico_orcamentos_3d.csv");
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            });
-        }
-
-        // Inicialização padrão
-        calcular();
-    </script>
-</body>
-</html>
+        function carregarConfiguracoesDo
