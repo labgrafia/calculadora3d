@@ -403,7 +403,38 @@
         }
 
         function eAdmin() {
-            return usuarioAtual && usuarioAtual.email === ADMIN_EMAIL;
+            let adminVerificado = false;
+
+// Função que checa no Firebase se o usuário atual é admin
+function eAdmin() {
+    return adminVerificado;
+}
+
+// Atualize o listener de autenticação para verificar o status de admin no banco
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        usuarioAtual = user;
+        document.getElementById('modalLogin').classList.add('hidden');
+        document.getElementById('userInfo').classList.remove('hidden');
+        document.getElementById('userEmailDisplay').innerText = user.email;
+        document.getElementById('btnLogout').classList.remove('hidden');
+
+        // Verifica se o e-mail logado existe na lista de admins do Realtime Database
+        const emailKey = user.email.replace(/\./g, '_');
+        db.ref('admins/' + emailKey).once('value').then((snapshot) => {
+            adminVerificado = snapshot.exists(); // True se estiver cadastrado lá, false se não
+            carregarConfiguracoesDoBanco();
+            carregarHistorico();
+        });
+
+    } else {
+        usuarioAtual = null;
+        adminVerificado = false;
+        document.getElementById('modalLogin').classList.remove('hidden');
+        document.getElementById('userInfo').classList.add('hidden');
+        document.getElementById('btnLogout').classList.add('hidden');
+    }
+});
         }
 
         function carregarConfiguracoesDoBanco() {
