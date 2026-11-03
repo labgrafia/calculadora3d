@@ -587,3 +587,66 @@
                 filamentoKg: parseFloat(document.getElementById('cfgFilamentoKg').value) || 0,
                 custoKwh: parseFloat(document.getElementById('cfgCustoKwh').value) || 0,
                 potenciaW: parseFloat(document.getElementById('cfgPotenciaW').value) || 0,
+                embValor: parseFloat(document.getElementById('cfgEmbValor').value) || 0,
+                embRolos: config.embRolos,
+                unidadesMes: config.unidadesMes,
+                custoFixoMes: config.custoFixoMes,
+                impValor: parseFloat(document.getElementById('cfgImpValor').value) || 0,
+                impVida: parseInt(document.getElementById('cfgImpVida').value) || 1,
+                falhasPct: parseFloat(document.getElementById('cfgFalhas').value) || 0,
+                impostoPct: parseFloat(document.getElementById('cfgImposto').value) || 0,
+                taxaCartaoPct: parseFloat(document.getElementById('cfgTaxaCartao').value) || 0,
+                anuncioPct: parseFloat(document.getElementById('cfgAnuncio').value) || 0,
+                markup: parseFloat(document.getElementById('cfgMarkup').value) || 1
+            };
+
+            db.ref('configuracoes').set(config).then(() => {
+                alert("Configurações atualizadas na nuvem com sucesso!");
+                fecharConfiguracoes();
+                atualizarResumosTela();
+                calcular();
+            });
+        }
+
+        function periciarExclusao(id, nomePeca) {
+            idParaExcluir = id;
+            document.getElementById('textoConfirmacaoExclusao').innerText = `Deseja apagar "${nomePeca}"?`;
+            document.getElementById('modalExcluir').classList.remove('hidden');
+        }
+
+        function confirmarExclusao(apagar) {
+            document.getElementById('modalExcluir').classList.add('hidden');
+            if (apagar && idParaExcluir) {
+                db.ref('historico/' + idParaExcluir).remove().then(() => {
+                    idParaExcluir = null;
+                }).catch((err) => {
+                    alert("Erro ao excluir: " + err.message);
+                });
+            }
+        }
+
+        function exportarCSV() {
+            db.ref('historico').once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    alert("Não há dados no histórico para exportar.");
+                    return;
+                }
+                let csvContent = "data:text/csv;charset=utf-8,Data;Peca;Tempo(h);Peso(g);PrecoVenda;PrecoLojista;UsoPessoal;CriadoPor\r\n";
+                snapshot.forEach((childSnapshot) => {
+                    const i = childSnapshot.val();
+                    csvContent += `${i.data};${i.nome};${i.tempo};${i.peso};${i.precoVenda};${i.precoLojista};${i.usoPessoal};${i.criadoPor}\r\n`;
+                });
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "historico_orcamentos_3d.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        }
+
+        calcular();
+    </script>
+</body>
+</html>
